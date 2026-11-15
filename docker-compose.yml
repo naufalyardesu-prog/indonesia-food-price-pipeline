@@ -21,6 +21,8 @@ x-airflow-common: &airflow-common
 services:
   postgres:
     image: postgres:16
+    ports:
+      - "5433:5432"
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -29,6 +31,23 @@ services:
       - postgres-db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+    mem_limit: 512m
+
+  warehouse:
+    image: postgres:16
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: ${WAREHOUSE_USER}
+      POSTGRES_PASSWORD: ${WAREHOUSE_PASSWORD}
+      POSTGRES_DB: ${WAREHOUSE_DB}
+    volumes:
+      - warehouse-db:/var/lib/postgresql/data
+      - ./sql/warehouse_init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${WAREHOUSE_USER}", "-d", "${WAREHOUSE_DB}"]
       interval: 10s
       retries: 5
     mem_limit: 512m
@@ -65,8 +84,11 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+      warehouse:
+        condition: service_healthy
     restart: unless-stopped
     mem_limit: 3g
 
 volumes:
   postgres-db:
+  warehouse-db:
