@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api-panelhargav2.badanpangan.go.id/api/front"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-TIMEOUT_DETIK = 30
+TIMEOUT_DETIK = (10, 60)  # (tunggu koneksi, tunggu jawaban)
 JEDA_DETIK = 3
 LEVEL_HARGA = {1: "produsen", 2: "grosir", 3: "konsumen"}
 
@@ -28,12 +28,6 @@ def ambil_json(endpoint: str, params: dict) -> dict:
     if data.get("status") != "success":
         raise ValueError(f"API tidak sukses: {data.get('message')}")
     return data
-
-
-def ambil_daftar_komoditas(level_harga_id: int) -> dict:
-    """Ambil daftar komoditas (id, nama, satuan) untuk satu level harga."""
-    params = {"province_id": "", "city_id": "", "level_harga_id": level_harga_id}
-    return ambil_json("harga-pangan-informasi", params)
 
 
 def ambil_harga_provinsi(tanggal: str, level_harga_id: int, komoditas_id: int) -> dict:
@@ -64,13 +58,29 @@ def simpan_bronze(data: dict, tanggal: str, nama_file: str,
     return path
 
 
+def dapatkan_daftar_komoditas(level_id: int, tanggal: str, folder_data: str) -> dict:
+    """Ambil daftar komoditas dari API. Kalau gagal, pakai file yang sudah ada di bronze."""
+    nama_file = f"komoditas_level_{level_id}.json"
+    cadangan = folder_bronze(tanggal, folder_data) / nama_file
+    try:
+        params = {"province_id": "", "city_id": "", "level_harga_id": level_id}
+        daftar = ambil_json("harga-pangan-informasi", params)
+        simpan_bronze(daftar, tanggal, nama_file, folder_data)
+        return daftar
+    except Exception as error:
+        if cadangan.exists():
+            logger.warning("Daftar komoditas level %s gagal diambil (%s), pakai file cadangan",
+                           level_id, error)
+            return json.loads(cadangan.read_text(encoding="utf-8"))
+        raise
+
+
 def ekstrak_satu_tanggal(tanggal: str, folder_data: str = "/opt/airflow/data") -> dict:
     """Ambil harga semua komoditas di ketiga level untuk satu tanggal, simpan ke bronze."""
     ringkasan = {"berhasil": 0, "dilewati": 0, "gagal": []}
 
     for level_id, nama_level in LEVEL_HARGA.items():
-        daftar = ambil_daftar_komoditas(level_id)
-        simpan_bronze(daftar, tanggal, f"komoditas_level_{level_id}.json", folder_data)
+        daftar = dapatkan_daftar_komoditas(level_id, tanggal, folder_data)
         time.sleep(JEDA_DETIK)
 
         for komoditas in daftar["data"]:
@@ -78,6 +88,8 @@ def ekstrak_satu_tanggal(tanggal: str, folder_data: str = "/opt/airflow/data") -
 
             if (folder_bronze(tanggal, folder_data) / nama_file).exists():
                 ringkasan["dilewati"] += 1
+                logger.info("%s | %s | %s: sudah ada, dilewati",
+                            tanggal, nama_level, komoditas["name"])
                 continue
 
             try:
