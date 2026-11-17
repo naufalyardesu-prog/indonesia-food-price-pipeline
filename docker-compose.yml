@@ -34,6 +34,7 @@ services:
       interval: 10s
       retries: 5
     mem_limit: 512m
+    restart: unless-stopped
 
   warehouse:
     image: postgres:16
@@ -51,6 +52,7 @@ services:
       interval: 10s
       retries: 5
     mem_limit: 512m
+    restart: unless-stopped
 
   airflow-init:
     <<: *airflow-common
