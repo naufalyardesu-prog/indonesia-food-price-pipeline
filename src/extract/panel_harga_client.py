@@ -14,7 +14,8 @@ BASE_URL = "https://api-panelhargav2.badanpangan.go.id/api/front"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 TIMEOUT_DETIK = (10, 60)  # (tunggu koneksi, tunggu jawaban)
 JEDA_DETIK = 3
-LEVEL_HARGA = {1: "produsen", 2: "grosir", 3: "konsumen"}
+# Level 2 (grosir) dikeluarkan: data per provinsi kosong di semua tanggal yang diuji (Ags-Nov 2026)
+LEVEL_HARGA = {1: "produsen", 3: "konsumen"}
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=5, max=20), reraise=True)
