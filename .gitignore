@@ -5,3 +5,6 @@ data/
 logs/
 .venv/
 credentials/
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/

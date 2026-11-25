@@ -1,0 +1,13 @@
+name: food_price
+version: "1.0.0"
+profile: food_price
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+models:
+  food_price:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
